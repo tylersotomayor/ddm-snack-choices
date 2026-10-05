@@ -1,0 +1,19 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Choosing between two similarly valued snacks should take longer than choosing
+between a favorite and a much less valued alternative. The drift-diffusion
+model (DDM) links this prediction to the probability of choosing each good.
+When values are close, evidence drifts slowly toward either decision threshold;
+with a larger value difference, choices become more predictable and quicker on
+average. I use the formulation presented by
+\textcite[slides 10--11 and 24--26]{woodford2026ddm} in Lecture 5.
+
+The individual file, \texttt{indv-Data.csv}, records 435 choices under my UNI,
+\texttt{ts3686}. The pooled file,
+\texttt{popData.csv}, supplies 15 class bins.
+The first good in each individual record is treated as the left good and the
+second as the right good. Their mean bids from Section 1 of the experiment
+give $v_L$ and $v_R$, so the value difference is $\Delta=v_R-v_L$.
+There are 368 distinct pairs of goods, some of which I encountered more than
+once; each choice is a separate trial.

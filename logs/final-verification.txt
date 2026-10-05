@@ -1,0 +1,56 @@
+Project 1 final verification
+Date: October 5, 2026
+Subject: ts3686
+
+REPORT
+The project raw file data/raw/indv-Data.csv now holds only the 435 original
+records for ts3686, byte-identical to the replication package copy; the full
+class file with other students' identifiers is kept outside the repository.
+Title: "Snack Choices and Decision Times under the Drift-Diffusion Model";
+running head "Snack Choices and Decision Times". The title footnote thanks
+Michael Woodford and Andrew Souther, and the citation line reads the title
+from \paperfulltitle so the two cannot drift apart.
+Figure labels are set in Latin Modern Roman, the body typeface, via
+code/01_setup.do. main.tex sets \pdfinclusioncopyfonts=1 so pdfTeX keeps the
+fonts embedded in the figure PDFs; without it pdfTeX reused the body font for
+figure text of the same name and the ff ligature in "difference" was lost.
+Both x-axis titles carry margin(t=3) in code/04_figures.do so the title clears
+the tick labels with Latin Modern metrics.
+All 26 numeric macros, the table fragments, and the processed CSVs are
+byte-identical to the values verified before the font change; no estimate moved.
+The Stata pipeline, the independent Python audit, and the strict reference
+audit all pass. The final build has no LaTeX warnings or bad boxes.
+Page 1 and pages 5, 7, 8, and 9 were rasterized and inspected: every figure
+embeds LMRoman10-Regular, the axis-title text extracts with the ligature on all
+four pages, and the titles sit clear of the tick labels.
+The report has 13 pages. The root main.pdf is identical to the final report PDF.
+Report SHA-256: d72eeef205b603a912ced6492c5d8bf1a3258a5a05a6110a8f5dc77b8444743f
+
+PYTHON REPLICATION
+code/replicate.py reproduces the whole analysis without Stata, using only the
+standard library for every number (bisection on the score, closed-form OLS)
+and matplotlib only to draw. Its four table fragments and 26 numeric macros
+are byte-identical to the Stata versions, its three processed datasets agree
+with Stata's to a relative tolerance of 1e-9 (largest difference 2.1e-10), and
+its figure PDFs are byte-stable across runs with Type 3 font embedding and no
+poppler warnings. Run in a fresh extraction without Stata, it verified the
+four shipped fragments; run after the Stata pipeline, it verified all seven
+comparisons. The report still uses only the Stata figures.
+
+REPLICATION PACKAGE
+Source folder: replication/project-1-replication/
+Archive: output/replication/project-1-replication.zip
+The package code is identical to the project code. Its README carries the new
+title, names Latin Modern Roman, says where the OpenType files come from, and
+explains that the manifest omits the figure PDFs because Stata's PDF export is
+not byte-stable. checksums.sha256 lists README, runner, six do-files, replicate.py, two inputs,
+and four table fragments; shasum -a 256 -c passes on an extracted copy
+and on a regenerated one.
+A fresh copy of the final ZIP was extracted to a path containing spaces, its
+bundled outputs removed, and ./run_stata.sh completed every stage. The three
+processed CSVs and four table fragments matched the project byte for byte, and
+all four regenerated figures matched the report figures exactly at 150 dpi.
+The independent audit also passed on the packaged inputs. Details are in
+logs/replication-verification.json; the run logs are
+logs/replication-stata-master.log and logs/replication-stata-console.log.
+Archive SHA-256: a7eacb388632066d69b72dfc1b7938f42e60dc44b08f4b49c122b39e43fc98d5

@@ -1,0 +1,3 @@
+Individual audit passed: alpha=0.408351361, A=2913.033209, t0=644.122740, R2=0.554163466, RMSE=172.209030
+Pooled audit passed: alpha=0.308202236, A=2656.594030, t0=539.137219, R2=0.960734136, RMSE=36.708551
+All trial counts, bin means, inverse coordinates, likelihood fits, and response-time predictions agree with Stata.

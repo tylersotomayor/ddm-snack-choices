@@ -1,0 +1,59 @@
+\section{Bin Calculations}
+\label{app:bin-results}
+
+Tables~\ref{tab:individual-bins} and~\ref{tab:pooled-bins} report the
+quantities plotted in the four figures. The Stata and Python code that
+produces them, together with a standalone replication package, is at
+\href{\paperrepourl}{\nolinkurl{\paperlatesttext}}.
+
+\begin{table}[H]
+  \centering
+  \caption{\capttitle{Individual Bin Calculations}}
+  \label{tab:individual-bins}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}rrrrrrrrr@{}}
+    \toprule
+    Bin & $d_j$ & $N_j$ & $N_j^{RT}$ & $p_j$ & $e_j$ & $g_j$
+        & $T_j$ & $\widehat T_j$ \\
+    \midrule
+    \input{output/tables/tab-individual-bins.tex}
+  \end{tabular}
+  \floatnotes{$N_j$ counts all choices; $N_j^{RT}$ counts retained
+  response-time trials. $p_j$ and $e_j$ use all choices, while $T_j$ and
+  $g_j$ use retained trials. $\widehat T_j=\widehat A g_j+\widehat t_0$.
+  $d_j$ is in dollars and both time columns are in milliseconds.
+  Source: \texttt{indv-Data.csv}, UNI \texttt{ts3686}.}
+\end{table}
+
+\subsection{Averaging Convention}
+Both $g_j$ and $T_j$ use the \RTKept\ retained response-time trials.
+Averaging $G_{\widehat\alpha}$ over all original trials instead gives
+$\widehat A=\AltAIndividual$, $\widehat t_0=\AltOffsetIndividual$
+milliseconds, and $R^2=\AltRSquaredIndividual$.
+
+The fitted individual points use the mean of $G_{\widehat\alpha}$ within
+each bin, while the smooth curve evaluates it at $d_j$. The nonlinearity
+makes the two differ slightly; their maximum vertical separation is
+\CurveGapIndividual\ milliseconds.
+
+\begin{table}[H]
+  \centering
+  \caption{\capttitle{Pooled Bin Calculations}}
+  \label{tab:pooled-bins}
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{@{}rrrrrrrr@{}}
+    \toprule
+    Bin & $d_j$ & $n_j+m_j$ & $p_j$ & $e_j$ & $g_j$
+        & $T_j$ & $\widehat T_j$ \\
+    \midrule
+    \input{output/tables/tab-pooled-bins.tex}
+  \end{tabular}
+  \floatnotes{The supplied $d_j$ is an arithmetic mean, used as the common
+  value difference for every trial in its bin. The time function is evaluated
+  at $d_j$ using the class estimate of alpha to give $g_j$;
+  $\widehat T_j=\widehat A_c g_j+\widehat t_{0,c}$.
+  $d_j$ is in dollars and both time columns are in milliseconds.
+  Source: \texttt{popData.csv}.}
+\end{table}

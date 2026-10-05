@@ -1,0 +1,104 @@
+\section{Individual Choices}
+\label{sec:individual-choices}
+
+\subsection{Choice Probabilities (1a)}
+With symmetric thresholds and an unbiased starting point, the model in
+\textcite[slide 10]{woodford2026ddm} gives
+\begin{equation}\label{eq:choice-probability}
+  P_\alpha(\Delta)
+  \;=\; \frac{e^{\alpha\Delta}}{e^{\alpha\Delta}+e^{-\alpha\Delta}}
+  \;=\; \frac{1}{1+e^{-2\alpha\Delta}}, \qquad \alpha>0.
+\end{equation}
+The parameter $\alpha$ measures how strongly choices respond to the bid
+difference. Since the two possible responses are exhaustive,
+\[
+  \Pr(L\mid\Delta)
+  \;=\; 1-P_\alpha(\Delta)
+  \;=\; \frac{e^{-\alpha\Delta}}{e^{\alpha\Delta}+e^{-\alpha\Delta}}
+  \;=\; P_\alpha(-\Delta).
+\]
+Equal values imply a one-half probability of either response, and
+reversing the value difference reverses the choice probabilities.
+
+\subsection{Likelihood (1b)}
+Let $y_i=1$ if I choose the right good and $y_i=0$ otherwise, and define
+$\sigma_i=2y_i-1$. Conditional on the observed bid differences and independent
+trial disturbances, the probability of the recorded sequence is
+\[
+  L(\alpha)
+  \;=\; \prod_{i=1}^{435}
+       P_\alpha(\Delta_i)^{y_i}
+       [1-P_\alpha(\Delta_i)]^{1-y_i}
+  \;=\; \prod_{i=1}^{435}P_\alpha(\sigma_i\Delta_i).
+\]
+Taking logs converts the product into a sum, following the likelihood
+construction in \textcite[pp.\ 4--5]{souther2026mle}:
+\begin{equation}\label{eq:individual-likelihood}
+  LL(\alpha)
+  \;=\; \sum_{i=1}^{435}\log P_\alpha(\sigma_i\Delta_i)
+  \;=\; -\sum_{i=1}^{435}\log\!\left(1+e^{-2\alpha\sigma_i\Delta_i}\right).
+\end{equation}
+
+\subsection{Maximum Likelihood Estimate (1c)}
+I maximize equation~\eqref{eq:individual-likelihood} using a logistic
+regression of $y_i$ on $\Delta_i$ with no intercept. Its slope is $2\alpha$,
+so dividing the estimated coefficient by two gives
+\[
+  \widehat{\alpha}=\AlphaIndividual,
+  \qquad LL(\widehat{\alpha})=\LLIndividual.
+\]
+The score and curvature provide a check on this numerical estimate:
+\[
+  LL'(\alpha)=2\sum_i\Delta_i[y_i-P_\alpha(\Delta_i)],
+  \qquad
+  LL''(\alpha)=-4\sum_i\Delta_i^2P_\alpha(\Delta_i)
+                         [1-P_\alpha(\Delta_i)].
+\]
+At the unrounded estimate, $|LL'(\widehat\alpha)|<10^{-6}$.
+The second derivative is negative when at least one bid difference is nonzero,
+making the positive optimum unique. Under this fit, a one-dollar advantage
+for the right good raises its choice probability to about 69 percent.
+
+\subsection{Binned Comparison (1d)}
+Let $M=\max_i|\Delta_i|$, about \MaxDelta\ dollars. I divide $[-M,M]$
+into 15 equal intervals, each of width $2M/15\approx\BinWidth$ dollars. Intervals include
+their left endpoint and exclude their right endpoint, except that the last
+also includes $M$. For the set of trials $B_j$ in bin $j$, with
+$N_j=|B_j|$, I calculate
+\[
+  p_j=\frac{1}{N_j}\sum_{i\in B_j}y_i,
+  \qquad
+  e_j=\frac{1}{N_j}\sum_{i\in B_j}P_{\widehat\alpha}(\Delta_i).
+\]
+Inverting equation~\eqref{eq:choice-probability} gives the horizontal
+coordinate,
+\begin{equation}\label{eq:inverse-probability}
+  d_j=P_{\widehat\alpha}^{-1}(e_j)
+  \;=\;\frac{1}{2\widehat\alpha}
+          \log\!\left(\frac{e_j}{1-e_j}\right).
+\end{equation}
+With this coordinate, $P_{\widehat\alpha}(d_j)=e_j$, so every predicted bin
+point lies exactly on the fitted choice curve.
+
+\begin{figure}[!ht]
+  \centering
+  \caption{\capttitle{Individual Choice Frequencies}}
+  \label{fig:individual-choice}
+  \includegraphics[width=0.94\textwidth]{fig-individual-choice.pdf}
+  \floatnotes{Source: \texttt{indv-Data.csv}, UNI \texttt{ts3686}; 435 trials.
+  Open circles show observed frequencies $p_j$ in 15 equal-width bins.
+  Black dots show mean predicted probabilities $e_j$ at the inverse-probability
+  coordinates in equation~\eqref{eq:inverse-probability}. The curve is
+  $P_{\widehat\alpha}(d)$, with $\widehat\alpha=\AlphaIndividual$.}
+\end{figure}
+
+I almost always chose the higher-bid snack when the bids were far apart
+(Figure~\ref{fig:individual-choice}). For nearly equal bids, I chose right in
+52.9 percent of trials, close to the predicted 50.1 percent. The intermediate
+bins are less regular. Near $d_j=1.24$, the right good won only 20 of 34
+choices despite its higher bid, while the model puts its choice probability
+at 73.3 percent. In the bin near $d_j=-1.86$, I chose right in 8.8 percent
+of trials, roughly half the predicted 18.0 percent. Across all 15 bins,
+the root mean squared difference between observed and predicted frequencies,
+weighted by the number of choices in each bin, is
+\ChoiceRMSEIndividual\ percentage points.

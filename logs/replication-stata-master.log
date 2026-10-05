@@ -1,0 +1,695 @@
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /private/tmp/project-1 replication check.CRK8XG/project-1-replication/logs/stata-master.log
+  log type:  text
+ opened on:   5 Oct 2026, 15:55:41
+
+. global RAW "data/raw" // Read source files from this directory without modifying them.
+
+. global PROCESSED "data/processed" // Keep every derived dataset in this directory.
+
+. global FIGURES "output/figures" // Export the four plots here.
+
+. global TABLES "output/tables" // Write the report's table bodies and numeric macros here.
+
+. 
+. do "code/01_setup.do" // Set numerical storage, graph styling, and output directories.
+
+. * Inputs: project directories. Outputs: reproducible environment and paths.
+. version 19.0 // Keep this stage under the same Stata version as the master file.
+
+. set more off // Do not pause if a command produces a long results listing.
+
+. set type double // Store newly created numeric variables in double precision by default.
+
+. set scheme s2mono // Use Stata's built-in monochrome graph scheme.
+
+. graph set window fontface "Latin Modern Roman" // Use the report's plot font in the graph window.
+
+. graph set print fontface "Latin Modern Roman" // Use the same font in the exported figures.
+
+. foreach path in "data/intermediate" "data/processed" "output/figures" "output/tables" "output/pdf" { // Create the project's output directories one at a time.
+  2.     capture mkdir `path' // Leave an existing directory in place and continue.
+  3. } // Finish creating directories before checking the inputs.
+
+. confirm file "${RAW}/indv-Data.csv" // Stop here if the individual-trial file is missing.
+
+. confirm file "${RAW}/popData.csv" // Stop here if the supplied class summaries are missing.
+
+. 
+end of do-file
+
+. do "code/02_import_clean.do" // Select the individual sample and prepare both datasets.
+
+. * Inputs: assignment CSVs in data/raw. Outputs: individual and pooled .dta files.
+. * item1 is the left good; item2 is the right good. RT is in milliseconds.
+. * Choice estimation keeps all 435 trials. Trimming is applied only to RT analysis.
+. * The replication copy contains only ts3686's original rows; the full course file works too.
+. version 19.0 // Use the Stata 19 command definitions used for the report.
+
+. import delimited using "${RAW}/indv-Data.csv", varnames(1) case(lower) clear // Read the header as variable names and convert those names to lowercase.
+(encoding automatically selected: ISO-8859-1)
+(7 vars, 435 obs)
+
+. foreach v in item1id item2id chosenid columbiaid { // Clean surrounding spaces in the four identifier fields.
+  2.     replace `v' = strtrim(`v') // Make equality checks insensitive to padding in the CSV.
+  3. } // Finish cleaning identifiers before selecting the sample.
+(0 real changes made)
+(435 real changes made)
+(435 real changes made)
+(435 real changes made)
+
+. keep if columbiaid == "ts3686" // Retain the participant whose choices the report analyzes.
+(0 observations deleted)
+
+. assert _N == 435 // The supplied individual sample has 435 trials, including repeated pairs.
+
+. assert !missing(item1v, item2v, rt) // Each trial needs both bids and a response time.
+
+. assert rt > 0 // Response times must be strictly positive.
+
+. assert chosenid == item1id | chosenid == item2id // The choice must be one of the two displayed snacks.
+
+. gen long trial = _n // Number the retained trials in their original order.
+
+. gen str60 pair = cond(item1id < item2id, item1id + "|" + item2id, item2id + "|" + item1id) // Alphabetize each pair's IDs so left/right reversals count as the same pair.
+
+. * Repeated pairs are distinct trials in the supplied file; do not deduplicate.
+. egen byte pair_tag = tag(pair) // Mark one record per unordered pair without deleting repeated trials.
+
+. quietly count if pair_tag // Count the marked pairs rather than the number of trials.
+
+. scalar n_pairs = r(N) // Save the distinct-pair count for inspection in the log.
+
+. isid trial // Check that the trial index uniquely identifies each retained record.
+
+. gen double delta = item2v - item1v // A positive difference means the right snack has the higher bid.
+
+. gen byte chose_r = chosenid == item2id // Code a right choice as one and a left choice as zero.
+
+. gen byte sigma = 2 * chose_r - 1 // Convert choices to +1 for right and -1 for left in the likelihood formula.
+
+. gen double absdelta = abs(delta) // Measure the bid gap regardless of which side has the higher bid.
+
+. quietly summarize absdelta // Find the largest absolute bid difference in this sample.
+
+. scalar delta_max = r(max) // Save M, the extent of the symmetric bin range.
+
+. scalar bin_width = 2 * delta_max / 15 // Divide the interval from -M to M into 15 equal parts.
+
+. * Intervals are left-closed/right-open, except the final interval includes +M.
+. gen byte bin = min(15, floor((delta + delta_max) / bin_width) + 1) // Use left-closed bins and keep the endpoint +M in bin 15.
+
+. assert inrange(bin, 1, 15) // Every trial must belong to one of the 15 intervals.
+
+. quietly summarize rt // Compute the mean and sample SD once, using all 435 response times.
+
+. scalar rt_mean = r(mean) // Keep the full-sample mean before excluding any time observations.
+
+. scalar rt_sd = r(sd) // Stata's sample SD uses N-1 in its variance denominator.
+
+. scalar rt_lower = rt_mean - 2 * rt_sd // Record the lower two-SD cutoff for the report.
+
+. scalar rt_upper = rt_mean + 2 * rt_sd // Record the upper two-SD cutoff for the report.
+
+. gen byte rt_keep = abs(rt - rt_mean) < 2 * rt_sd // Flag times strictly within both cutoffs without dropping choice records.
+
+. quietly count if rt_keep // Count the trials available for the response-time means.
+
+. scalar rt_n = r(N) // Save the number retained by this single trimming step.
+
+. scalar rt_removed = _N - rt_n // Count the excluded times relative to the original 435 trials.
+
+. quietly count if delta == 0 // Check how often the two bids are exactly equal.
+
+. scalar n_ties = r(N) // Save the tie count; these trials need the limit of the time function at zero.
+
+. quietly count if sigma * delta > 0 // Count choices of the snack with the higher bid.
+
+. scalar n_consistent = r(N) // Retain that count as a descriptive check on choice coding.
+
+. quietly count if sigma * delta < 0 // Count choices of the lower-bid snack, leaving ties separate.
+
+. scalar n_reversals = r(N) // Save the number of choices against the bid ranking.
+
+. save "${PROCESSED}/individual-trials.dta", replace // Save all trials, their bins, and the time-retention flag for estimation.
+(file data/processed/individual-trials.dta not found)
+file data/processed/individual-trials.dta saved
+
+. export delimited using "${PROCESSED}/individual-trials.csv", replace // Provide a readable copy of the same trial-level data.
+(file data/processed/individual-trials.csv not found)
+file data/processed/individual-trials.csv saved
+
+. 
+. import delimited using "${RAW}/popData.csv", varnames(1) clear // Load the supplied class means and choice counts.
+(encoding automatically selected: UTF-8)
+(4 vars, 15 obs)
+
+. assert _N == 15 // The class file must have one row for each of its 15 bins.
+
+. assert !missing(dj, nj, mj, tj) // Require a bid difference, both choice counts, and a time mean in every bin.
+
+. assert nj >= 0 & mj >= 0 & tj > 0 // Counts cannot be negative and mean times must be positive.
+
+. gen byte bin = _n // Preserve the supplied ordering of class bins.
+
+. gen long n = nj + mj // Add right and left choices to obtain each bin's total count.
+
+. gen double pj = nj / n // Compute the observed fraction choosing right.
+
+. assert n > 0 // Every bin needs at least one choice to define its choice frequency.
+
+. quietly summarize n // Add the bin counts to recover the class sample size.
+
+. scalar pool_n = r(sum) // Keep the total for count-weighted choice fit and the summary table.
+
+. save "${PROCESSED}/pooled-input.dta", replace // Save the class inputs; individual times are unavailable for trimming.
+(file data/processed/pooled-input.dta not found)
+file data/processed/pooled-input.dta saved
+
+. 
+end of do-file
+
+. do "code/03_analysis.do" // Estimate choice sensitivity, form bins, and fit response times.
+
+. * Inputs: clean trial and pooled datasets. Outputs: fits and 15-bin summaries.
+. * Lecture 5 normalization: P=invlogit(2*alpha*delta); G=tanh(alpha*delta)/delta.
+. * Both time regressions give equal weight to the 15 bin means.
+. * Scalar suffix i denotes the individual; c denotes the pooled class.
+. version 19.0 // Use the same Stata version as in data preparation.
+
+. use "${PROCESSED}/individual-trials.dta", clear // Load all individual choices, including trials whose times were excluded.
+
+. logit chose_r delta, noconstant iterate(200) tolerance(1e-12) // Fit log odds = 2*alpha*delta, with no intercept and a tight convergence tolerance.
+
+Iteration 0:  Log likelihood = -301.51902  
+Iteration 1:  Log likelihood =  -192.8557  
+Iteration 2:  Log likelihood = -192.60876  
+Iteration 3:  Log likelihood = -192.60815  
+Iteration 4:  Log likelihood = -192.60815  
+
+Logistic regression                                     Number of obs =    435
+                                                        Wald chi2(1)  = 123.17
+Log likelihood = -192.60815                             Prob > chi2   = 0.0000
+
+------------------------------------------------------------------------------
+     chose_r | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       delta |   .8167027     .07359    11.10   0.000      .672469    .9609365
+------------------------------------------------------------------------------
+
+. assert e(converged) == 1 // Do not use a choice estimate if the optimizer failed to converge.
+
+. scalar alpha_i = _b[delta] / 2 // Divide the logit slope by two to recover the lecture's alpha.
+
+. scalar alpha_se_i = _se[delta] / 2 // Apply the same rescaling to the slope's standard error.
+
+. scalar ll_i = e(ll) // Save the maximized log likelihood before another regression replaces it.
+
+. scalar n_i = e(N) // Record the number of trials entering the choice likelihood.
+
+. assert alpha_i > 0 // Check that right-choice probability increases with the right snack's bid advantage.
+
+. gen double pfit = invlogit(2 * alpha_i * delta) // Evaluate each trial's probability of choosing right at the fitted alpha.
+
+. gen double gfit = cond(delta == 0, alpha_i, tanh(alpha_i * delta) / delta) // Use G(0)=alpha at the equal-bid trial to avoid division by zero.
+
+. assert !missing(pfit, gfit) // Both model functions must be defined on every trial.
+
+. gen double score = 2 * delta * (chose_r - pfit) // Calculate each trial's derivative of log likelihood with respect to alpha.
+
+. quietly summarize score // Sum those derivative contributions across the choice sample.
+
+. scalar score_i = r(sum) // Store the score at the unrounded maximum-likelihood estimate.
+
+. assert abs(score_i) < 1e-5 // Check that the estimate nearly solves the first-order condition.
+
+. gen double curvature = -4 * delta^2 * pfit * (1 - pfit) // Calculate each trial's second derivative with respect to alpha.
+
+. quietly summarize curvature // Add the curvature contributions for the full log likelihood.
+
+. scalar hessian_i = r(sum) // Keep the total second derivative for inspection.
+
+. assert hessian_i < 0 // Negative curvature confirms a maximum at a stationary point.
+
+. gen double loglik = ln(invlogit(2 * alpha_i * sigma * delta)) // Evaluate log P(sigma*delta), the assignment's trial-level likelihood expression.
+
+. quietly summarize loglik // Add the log probabilities over trials.
+
+. assert abs(r(sum) - ll_i) < 1e-7 // Confirm that this likelihood formula agrees with Stata's logit likelihood.
+
+. gen double rt_used = rt if rt_keep // Set excluded times to missing so they do not enter the bin means.
+(17 missing values generated)
+
+. gen double g_used = gfit if rt_keep // Average G over exactly the same retained trials as response time.
+(17 missing values generated)
+
+. save "${PROCESSED}/individual-trials.dta", replace // Add fitted probabilities and time-function values to the saved trial data.
+file data/processed/individual-trials.dta saved
+
+. export delimited using "${PROCESSED}/individual-trials.csv", replace // Update the readable trial file with those fitted quantities.
+file data/processed/individual-trials.csv saved
+
+. collapse (count) n=chose_r n_rt=rt_used (sum) n_right=chose_r /// Count all choices, retained times, and right choices within each bin.
+>     (mean) pj=chose_r ej=pfit mean_delta=delta tj=rt_used gj=g_used g_all=gfit, by(bin) // Form bin means; g_all also keeps the time-function mean over untrimmed trials.
+
+. assert _N == 15 // All 15 individual intervals must survive aggregation.
+
+. assert n > 0 & n_rt > 0 // Every bin needs choices and at least one retained response time.
+
+. gen double lower = -delta_max + (bin - 1) * bin_width // Recover each bin's lower boundary from its index.
+
+. gen double upper = -delta_max + bin * bin_width // Recover each bin's upper boundary using the same width.
+
+. gen double dj = ln(ej / (1 - ej)) / (2 * alpha_i) // Invert the mean predicted probability to obtain the coordinate required in 1(d).
+
+. assert dj >= lower - 1e-10 & dj <= upper + 1e-10 // The inverse coordinate lies within its bin, allowing tiny numerical error.
+
+. assert abs(invlogit(2 * alpha_i * dj) - ej) < 1e-12 // Substituting d_j back into P must recover the bin's predicted probability.
+
+. regress tj gj // Fit T_j=t0+A*g_j by OLS, giving all 15 means equal weight.
+
+      Source |       SS           df       MS      Number of obs   =        15
+-------------+----------------------------------   F(1, 13)        =     16.16
+       Model |  552923.868         1  552923.868   Prob > F        =    0.0015
+    Residual |   444839.25        13  34218.4038   R-squared       =    0.5542
+-------------+----------------------------------   Adj R-squared   =    0.5199
+       Total |  997763.118        14  71268.7941   Root MSE        =    184.98
+
+------------------------------------------------------------------------------
+          tj | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          gj |   2913.033   724.6739     4.02   0.001      1347.47    4478.596
+       _cons |   644.1227   233.5942     2.76   0.016     139.4732    1148.772
+------------------------------------------------------------------------------
+
+. scalar A_i = _b[gj] // The slope estimates the individual time scale.
+
+. scalar t0_i = _b[_cons] // The intercept estimates time outside evidence accumulation, in milliseconds.
+
+. scalar r2_i = e(r2) // Save the fraction of variation in bin-mean times explained by this regression.
+
+. scalar rmse_i = sqrt(e(rss) / e(N)) // Use RSS/15 for descriptive RMSE, rather than Stata's residual variance with 13 degrees of freedom.
+
+. assert A_i > 0 // Check that the fitted time scale is positive.
+
+. predict double tfit // Obtain fitted bin times from the regression just estimated.
+(option xb assumed; fitted values)
+
+. gen double residual = tj - tfit // Positive residuals mean decisions took longer than predicted.
+
+. gen double choice_resid = pj - ej // Measure observed minus predicted right-choice frequency in each bin.
+
+. gen double weighted_choice_sq = n * choice_resid^2 // Weight each squared choice error by the number of trials in its bin.
+
+. quietly summarize weighted_choice_sq // Sum the weighted squared choice errors.
+
+. scalar choice_rmse_i = sqrt(r(sum) / n_i) // Normalize by all choice trials and take the square root.
+
+. gen double choice_sq = choice_resid^2 // Also retain squared errors without trial-count weights.
+
+. quietly summarize choice_sq // Average those squared errors over the 15 bins.
+
+. scalar choice_bin_rmse_i = sqrt(r(mean)) // Keep the unweighted choice RMSE as a diagnostic in the log.
+
+. gen double rt_curve = A_i * cond(dj == 0, alpha_i, tanh(alpha_i * dj) / dj) + t0_i // Evaluate the smooth time curve at the plotted coordinates.
+
+. gen double dot_curve_gap = abs(tfit - rt_curve) // Compare A*mean(G)+t0 with A*G(d_j)+t0; they need not coincide for individual bins.
+
+. quietly summarize dot_curve_gap // Find the largest absolute separation between the fitted dots and curve.
+
+. scalar max_curve_gap_i = r(max) // Save that separation for the appendix's explanation of Figure 2.
+
+. * The appendix also fits the same time means with G averaged over all trials.
+. quietly regress tj g_all // Change only the averaging sample for G; retain the trimmed time means and equal bin weights.
+
+. scalar A_all_i = _b[g_all] // Store the alternative slope without replacing the main A estimate.
+
+. scalar t0_all_i = _b[_cons] // Store the alternative intercept for the appendix.
+
+. scalar r2_all_i = e(r2) // Save the alternative regression's fit for comparison.
+
+. save "${PROCESSED}/individual-bins.dta", replace // Keep the main fitted dots and both averaging conventions in the bin dataset.
+(file data/processed/individual-bins.dta not found)
+file data/processed/individual-bins.dta saved
+
+. export delimited using "${PROCESSED}/individual-bins.csv", replace // Export every individual plotted coordinate and prediction in readable form.
+(file data/processed/individual-bins.csv not found)
+file data/processed/individual-bins.csv saved
+
+. 
+. use "${PROCESSED}/pooled-input.dta", clear // Start the class analysis from the 15 supplied summaries.
+
+. * Expand each bin into two rows, weighted by counts of R and L choices.
+. preserve // Keep a copy of the bin data while constructing the likelihood representation.
+
+. expand 2 // Make one row for right choices and one for left choices in each bin.
+(15 observations created)
+
+. bysort bin: gen byte chose_r = _n == 1 // Label the first copy as right and the second as left.
+
+. gen long weight = cond(chose_r, nj, mj) // Attach the supplied right or left count to each copy.
+
+. logit chose_r dj [fw=weight], noconstant iterate(200) tolerance(1e-12) // Frequency weights fit the grouped likelihood, treating each bin mean as the trial difference.
+
+Iteration 0:  Log likelihood = -21106.332  
+Iteration 1:  Log likelihood = -14649.432  
+Iteration 2:  Log likelihood = -14580.865  
+Iteration 3:  Log likelihood = -14580.856  
+Iteration 4:  Log likelihood = -14580.856  
+
+Logistic regression                                    Number of obs =  30,450
+                                                       Wald chi2(1)  = 7171.08
+Log likelihood = -14580.856                            Prob > chi2   =  0.0000
+
+------------------------------------------------------------------------------
+     chose_r | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          dj |   .6164045    .007279    84.68   0.000     .6021378    .6306711
+------------------------------------------------------------------------------
+
+. assert e(converged) == 1 // Require the class choice fit to converge before using its estimates.
+
+. scalar alpha_c = _b[dj] / 2 // Convert the class logit slope to the same alpha normalization as the individual fit.
+
+. scalar alpha_se_c = _se[dj] / 2 // Rescale the class slope's standard error accordingly.
+
+. scalar ll_c = e(ll) // Save the likelihood without binomial coefficients, which do not affect its maximizer.
+
+. assert alpha_c > 0 // Check that class right-choice probabilities increase with the bid advantage.
+
+. restore // Return to one row per class bin while keeping the estimated scalars.
+
+. gen double ej = invlogit(2 * alpha_c * dj) // Predict the right-choice frequency at each supplied mean difference.
+
+. gen double gj = cond(dj == 0, alpha_c, tanh(alpha_c * dj) / dj) // Evaluate the class time function, using its limit if a mean difference is zero.
+
+. gen double loglik = nj * ln(ej) + mj * ln(1 - ej) // Calculate the grouped likelihood directly from the two choice counts.
+
+. quietly summarize loglik // Sum the 15 bin contributions to the class likelihood.
+
+. assert abs(r(sum) - ll_c) < 1e-7 // Check that the grouped formula matches the frequency-weighted logit result.
+
+. gen double score = 2 * dj * (nj - n * ej) // Evaluate each bin's contribution to the derivative with respect to class alpha.
+
+. quietly summarize score // Add the derivative contributions across bins.
+
+. scalar score_c = r(sum) // Save the score at the fitted class parameter.
+
+. assert abs(score_c) < 1e-5 // Check that the class estimate nearly satisfies the first-order condition.
+
+. regress tj gj // Fit the 15 supplied time means with equal OLS weights; individual times are unavailable for trimming.
+
+      Source |       SS           df       MS      Number of obs   =        15
+-------------+----------------------------------   F(1, 13)        =    318.08
+       Model |  494554.092         1  494554.092   Prob > F        =    0.0000
+    Residual |  20212.7653        13   1554.8281   R-squared       =    0.9607
+-------------+----------------------------------   Adj R-squared   =    0.9577
+       Total |  514766.857        14  36769.0612   Root MSE        =    39.431
+
+------------------------------------------------------------------------------
+          tj | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          gj |   2656.594   148.9565    17.83   0.000     2334.793    2978.395
+       _cons |   539.1372   30.90297    17.45   0.000     472.3754     605.899
+------------------------------------------------------------------------------
+
+. scalar A_c = _b[gj] // Store the class time-scale estimate from the slope.
+
+. scalar t0_c = _b[_cons] // Store the class nondecision-time estimate from the intercept.
+
+. scalar r2_c = e(r2) // Record the fit across the 15 class time means.
+
+. scalar rmse_c = sqrt(e(rss) / e(N)) // Compute the class time RMSE with the same RSS/15 convention as the individual fit.
+
+. assert A_c > 0 // Check the positive time-scale condition in the class fit.
+
+. predict double tfit // Generate the fitted class response-time means.
+(option xb assumed; fitted values)
+
+. gen double residual = tj - tfit // Retain each class bin's time discrepancy for inspection.
+
+. gen double choice_resid = pj - ej // Subtract predicted from observed class right-choice shares.
+
+. gen double weighted_choice_sq = n * choice_resid^2 // Weight squared choice discrepancies by their class trial counts.
+
+. quietly summarize weighted_choice_sq // Sum those count-weighted errors over bins.
+
+. scalar choice_rmse_c = sqrt(r(sum) / pool_n) // Express choice RMSE as a frequency; the tables convert it to percentage points.
+
+. gen double choice_sq = choice_resid^2 // Keep the unweighted squared choice discrepancies too.
+
+. quietly summarize choice_sq // Average them across the 15 supplied bins.
+
+. scalar choice_bin_rmse_c = sqrt(r(mean)) // Store unweighted choice RMSE as an additional log diagnostic.
+
+. save "${PROCESSED}/pooled-bins.dta", replace // Save the class coordinates, observed means, and fitted values for plotting.
+(file data/processed/pooled-bins.dta not found)
+file data/processed/pooled-bins.dta saved
+
+. export delimited using "${PROCESSED}/pooled-bins.csv", replace // Export the same class bin data for inspection without Stata.
+(file data/processed/pooled-bins.csv not found)
+file data/processed/pooled-bins.csv saved
+
+. scalar list // Print the saved counts, parameter estimates, and fit checks in the run log.
+choice_bin_rmse_c =  .03291954
+choice_rmse_c =  .03641185
+    rmse_c =  36.708551
+      r2_c =  .96073414
+      t0_c =  539.13722
+       A_c =   2656.594
+   score_c =  7.186e-08
+      ll_c = -14580.856
+alpha_se_c =  .00363951
+   alpha_c =  .30820224
+  r2_all_i =  .55528101
+  t0_all_i =  642.88279
+   A_all_i =  2917.4791
+max_curve_gap_i =  2.7428696
+choice_bin_rmse_i =  .06280724
+choice_rmse_i =  .06695561
+    rmse_i =  172.20903
+      r2_i =  .55416347
+      t0_i =  644.12274
+       A_i =  2913.0332
+ hessian_i = -738.62211
+   score_i =  1.731e-08
+       n_i =        435
+      ll_i = -192.60815
+alpha_se_i =    .036795
+   alpha_i =  .40835136
+    pool_n =      30450
+n_reversals =         89
+n_consistent =        345
+    n_ties =          1
+rt_removed =         17
+      rt_n =        418
+  rt_upper =   5347.437
+  rt_lower =  -1562.614
+     rt_sd =  1727.5128
+   rt_mean =  1892.4115
+ bin_width =  .62222227
+ delta_max =   4.666667
+   n_pairs =        368
+        cv =         19
+
+. 
+end of do-file
+
+. do "code/04_figures.do" // Draw all four figures from those estimates and bin means.
+
+. * Inputs: estimated scalars and bin datasets. Outputs: four vector PDF figures.
+. version 19.0 // Use Stata 19's graph syntax and defaults.
+
+. foreach sample in individual pooled { // Draw a choice plot and a time plot for each sample.
+  2.     if "`sample'" == "individual" { // Set the individual graph's parameter names and horizontal range.
+  3.         local suffix i // Read the individual estimates, whose scalar names end in _i.
+  4.         local bound = scalar(delta_max) // Plot the individual curve from -M to M, matching the bin range.
+  5.         local tick "-4(2)4" // Label the individual horizontal axis every two dollars from -4 to 4.
+  6.     } // Finish the individual graph settings.
+  7.     else { // Use the following settings for the pooled class plots.
+  8.         local suffix c // Read the class estimates, whose scalar names end in _c.
+  9.         local bound = 10 // Use a symmetric range covering all supplied class differences.
+ 10.         local tick "-10(2)10" // Label the class horizontal axis every two dollars from -10 to 10.
+ 11.     } // Finish selecting settings for this sample.
+ 12.     use "${PROCESSED}/`sample'-bins.dta", clear // Load the sample's observed and predicted bin means.
+ 13.     local alpha = scalar(alpha_`suffix') // Copy fitted choice sensitivity into a local macro for the curve expression.
+ 14.     local scale = scalar(A_`suffix') // Copy the fitted time scale for the response-time curve.
+ 15.     local offset = scalar(t0_`suffix') // Copy the fitted nondecision time for the response-time curve.
+ 16.     twoway /// Combine the theoretical choice curve with two sets of bin points.
+>         (function y=invlogit(2*`alpha'*x), range(-`bound' `bound') n(1001) lcolor(black) lwidth(medthin)) /// Draw P(d) at 1,001 evenly spaced points as a thin black curve.
+>         (scatter ej dj, msymbol(O) msize(small) mcolor(black)) /// Use small filled circles for the model's mean choice predictions.
+>         (scatter pj dj, msymbol(Oh) msize(medlarge) mcolor(black) mlwidth(medthin)), /// Use larger open circles for observed right-choice shares so overlaps remain visible.
+>         xtitle("Value difference, right minus left ($)", margin(t=3)) /// Label the bid difference in dollars; the top margin keeps the title clear of the tick labels in Latin
+>  Modern.
+>         ytitle("Frequency of choosing right") /// Label the vertical axis as a right-choice frequency.
+>         xlabel(`tick', labsize(small) nogrid) ylabel(0(.2)1, labsize(small) angle(horizontal) nogrid) /// Show the selected dollar ticks and frequencies from zero to one, with
+> out grid lines.
+>         legend(order(3 "Observed frequency" 2 "DDM bin prediction" 1 "DDM curve") /// Order the legend as observed points, predicted points, and theoretical curve.
+>             rows(1) size(small) region(lstyle(none)) position(6)) /// Put the legend below the plot on one row, with small text and no border.
+>         graphregion(color(white)) plotregion(color(white)) /// Use white backgrounds for both the plot and surrounding graph.
+>         xsize(6.5) ysize(4.0) name(`sample'_choice, replace) // Set a 6.5-by-4-inch canvas and give this sample's choice graph a distinct name.
+ 17.     graph export "${FIGURES}/fig-`sample'-choice.pdf", as(pdf) replace // Write the choice figure as a vector PDF, replacing the prior run's file.
+ 18.     twoway /// Combine the theoretical time curve with predicted and observed time means.
+>         (function y=`scale'*cond(abs(x)<1e-8, `alpha', tanh(`alpha'*x)/x)+`offset', /// Draw A*G(d)+t0, using G(0)=alpha within a tiny neighborhood of zero to avoid division b
+> y zero.
+>             range(-`bound' `bound') n(1001) lcolor(black) lwidth(medthin)) /// Use the same range, point density, and black line style as in the choice plot.
+>         (scatter tfit dj, msymbol(O) msize(small) mcolor(black)) /// Mark fitted bin times with small filled circles.
+>         (scatter tj dj, msymbol(Oh) msize(medlarge) mcolor(black) mlwidth(medthin)), /// Mark observed bin times with larger open circles.
+>         xtitle("Value difference, right minus left ($)", margin(t=3)) /// Keep the horizontal-axis label and its margin consistent with the choice figures.
+>         ytitle("Mean response time (ms)") /// Label mean response time in milliseconds.
+>         xlabel(`tick', labsize(small) nogrid) ylabel(, labsize(small) angle(horizontal) nogrid) /// Use the sample's dollar ticks and horizontal time labels, without grid line
+> s.
+>         legend(order(3 "Observed mean" 2 "DDM bin prediction" 1 "DDM curve") /// List observed means first, followed by fitted bin means and the theoretical curve.
+>             rows(1) size(small) region(lstyle(none)) position(6)) /// Place the time legend below the plot with the same sizing as the choice legend.
+>         graphregion(color(white)) plotregion(color(white)) /// Keep both graph backgrounds white.
+>         xsize(6.5) ysize(4.0) name(`sample'_rt, replace) // Use the same canvas dimensions and a separate name for the response-time graph.
+ 19.     graph export "${FIGURES}/fig-`sample'-response-time.pdf", as(pdf) replace // Write the time figure as a vector PDF, replacing the prior run's file.
+ 20. } // Finish both plots for this sample, then continue to the next sample.
+file /private/tmp/project-1 replication check.CRK8XG/project-1-replication/output/figures/fig-individual-choice.pdf saved as PDF format
+file /private/tmp/project-1 replication check.CRK8XG/project-1-replication/output/figures/fig-individual-response-time.pdf saved as PDF format
+file /private/tmp/project-1 replication check.CRK8XG/project-1-replication/output/figures/fig-pooled-choice.pdf saved as PDF format
+file /private/tmp/project-1 replication check.CRK8XG/project-1-replication/output/figures/fig-pooled-response-time.pdf saved as PDF format
+
+. 
+end of do-file
+
+. do "code/05_tables.do" // Export the estimates and bin values used in the report's tables.
+
+. * Inputs: scalars and bin datasets. Outputs: LaTeX fragments and numeric macros.
+. * Captions and column headers belong to the report's LaTeX section files.
+. version 19.0 // Use the same Stata version as the estimation stages.
+
+. local llp_text : display %12.3fc ll_c // Format the class likelihood with three decimals and a thousands separator.
+
+. local llp_math = subinstr(strtrim("`llp_text'"), ",", "{,}", .) // Brace the comma so LaTeX treats it as a separator rather than mathematical punctuation.
+
+. file open fh using "${TABLES}/tab-estimates.tex", write replace // Open the summary-table fragment, replacing the previous run's version.
+(file output/tables/tab-estimates.tex not found)
+
+. file write fh "Choice trials & " %9.0fc (n_i) " & " %9.0fc (pool_n) " \\" _n // Write the individual and class choice sample sizes as whole numbers.
+
+. file write fh "Choice sensitivity & " %8.6f (alpha_i) " & " %8.6f (alpha_c) " \\" _n // Write both choice-sensitivity estimates to six decimal places.
+
+. file write fh "Log likelihood & \(" %12.3f (ll_i) "\) & \(" "`llp_math'" "\) \\" _n // Write the two log likelihoods in math mode so their minus signs render correctly.
+
+. file write fh "Choice RMSE (percentage points) & " %6.2f (100*choice_rmse_i) " & " %6.2f (100*choice_rmse_c) " \\" _n // Convert choice RMSE from a frequency to percentage poi
+> nts and show two decimals.
+
+. file write fh "\midrule" _n // Separate choice results from response-time results with a booktabs rule.
+
+. file write fh "Response-time bins & 15 & 15 \\" _n // Record the 15 observations in each response-time regression.
+
+. file write fh "Time scale, $\widehat{A}$ & " %10.3fc (A_i) " & " %10.3fc (A_c) " \\" _n // Write the fitted time scales with three decimals and thousands separators.
+
+. file write fh "Nondecision time, $\widehat{t}_0$ (ms) & " %10.3fc (t0_i) " & " %10.3fc (t0_c) " \\" _n // Write the fitted nondecision times in milliseconds with three decimal
+> s.
+
+. file write fh "\(R^2\) of bin means & " %6.4f (r2_i) " & " %6.4f (r2_c) " \\" _n // Report R-squared for variation in the 15 bin means, to four decimal places.
+
+. file write fh "Response-time RMSE (ms) & " %8.2f (rmse_i) " & " %8.2f (rmse_c) " \\" _n // Write time RMSE in milliseconds using the RSS/15 calculation from the analysis stage
+> .
+
+. file write fh "\bottomrule" _n // Finish the summary table body with its bottom rule.
+
+. file close fh // Close the file so all summary-table rows are written to disk.
+
+. 
+. foreach sample in individual pooled { // Write an appendix bin table for each of the two samples.
+  2.     use "${PROCESSED}/`sample'-bins.dta", clear // Load the bin values used in this sample's figures.
+  3.     file open fh using "${TABLES}/tab-`sample'-bins.tex", write replace // Open this sample's table fragment, replacing the prior version.
+  4.     forvalues j=1/15 { // Write one table row for each of the 15 bins, in dataset order.
+  5.         if "`sample'" == "individual" { // Use the individual table's extra column for the number of retained time observations.
+  6.             file write fh %2.0f (bin[`j']) " & \(" %6.3f (dj[`j']) "\) & " %4.0f (n[`j']) " & " /// Write the bin index, inverse-probability coordinate in math mode, and ch
+> oice count.
+>                 %4.0f (n_rt[`j']) " & " %5.3f (pj[`j']) " & " %5.3f (ej[`j']) " & " /// Continue with the retained-time count and observed and predicted choice frequencies.
+>                 %6.4f (gj[`j']) " & " %7.1f (tj[`j']) " & " %7.1f (tfit[`j']) " \\" _n // Finish the row with the time-function mean, observed time mean, and fitted time mean.
+  7.         } // Finish the individual row format.
+  8.         else { // Use the shorter row format for the class data, which have no separate retained-time count.
+  9.             file write fh %2.0f (bin[`j']) " & \(" %6.4f (dj[`j']) "\) & " %5.0fc (n[`j']) " & " /// Write the class bin index, supplied difference in math mode, and total 
+> choice count.
+>                 %5.3f (pj[`j']) " & " %5.3f (ej[`j']) " & " %6.4f (gj[`j']) " & " /// Continue with observed and predicted right-choice shares and the time-function value.
+>                 %7.1f (tj[`j']) " & " %7.1f (tfit[`j']) " \\" _n // Finish the class row with observed and fitted time means in milliseconds.
+ 10.         } // Finish the class row format.
+ 11.     } // Move to the next bin until all 15 rows have been written.
+ 12.     file write fh "\bottomrule" _n // Add the bottom rule after the final bin.
+ 13.     file close fh // Close this sample's table file before moving on.
+ 14. } // Finish exporting the two appendix table bodies.
+(file output/tables/tab-individual-bins.tex not found)
+(file output/tables/tab-pooled-bins.tex not found)
+
+. 
+. * Round prose values separately; the estimation and bin tables retain detail.
+. local llp_prose_text : display %12.2fc ll_c // Format the class likelihood to two decimals for its appearance in prose.
+
+. local llp_prose_math = subinstr(strtrim("`llp_prose_text'"), ",", "{,}", .) // Protect its thousands separator in LaTeX math mode, as in the summary table.
+
+. file open fh using "${TABLES}/numeric-values.tex", write replace // Open the file of numeric macros used by the report's prose.
+(file output/tables/numeric-values.tex not found)
+
+. file write fh "\newcommand{\AlphaIndividual}{" %5.3f (alpha_i) "}" _n // Define the individual alpha macro with three decimal places.
+
+. file write fh "\newcommand{\AlphaPooled}{" %5.3f (alpha_c) "}" _n // Define the class alpha macro with three decimal places.
+
+. file write fh "\newcommand{\LLIndividual}{" %8.2f (ll_i) "}" _n // Define the individual likelihood macro with two decimal places.
+
+. file write fh "\newcommand{\LLPooled}{" "`llp_prose_math'" "}" _n // Define the class likelihood macro from the formatted math-safe text.
+
+. file write fh "\newcommand{\TimeScaleIndividual}{" %5.0f (A_i) "}" _n // Round the individual time scale to a whole number for running prose.
+
+. file write fh "\newcommand{\OffsetIndividual}{" %4.0f (t0_i) "}" _n // Round individual nondecision time to a whole millisecond.
+
+. file write fh "\newcommand{\TimeScalePooled}{" %5.0f (A_c) "}" _n // Round the class time scale to a whole number for running prose.
+
+. file write fh "\newcommand{\OffsetPooled}{" %4.0f (t0_c) "}" _n // Round class nondecision time to a whole millisecond.
+
+. file write fh "\newcommand{\RSquaredIndividual}{" %5.3f (r2_i) "}" _n // Define individual R-squared to three decimal places.
+
+. file write fh "\newcommand{\RSquaredPooled}{" %5.3f (r2_c) "}" _n // Define class R-squared to three decimal places.
+
+. file write fh "\newcommand{\RTMean}{" %6.0fc (rt_mean) "}" _n // Write the full-sample time mean in whole milliseconds with a thousands separator.
+
+. file write fh "\newcommand{\RTSD}{" %6.0fc (rt_sd) "}" _n // Write the sample SD of response time in the same whole-millisecond format.
+
+. file write fh "\newcommand{\RTLower}{" %8.2f (rt_lower) "}" _n // Keep two decimal places for the lower trimming cutoff.
+
+. file write fh "\newcommand{\RTUpper}{" %8.2f (rt_upper) "}" _n // Keep two decimal places for the upper trimming cutoff.
+
+. file write fh "\newcommand{\RTKept}{" %3.0f (rt_n) "}" _n // Write the exact number of individual times retained after trimming.
+
+. file write fh "\newcommand{\RTRemoved}{" %3.0f (rt_removed) "}" _n // Write the exact number of individual times excluded by trimming.
+
+. file write fh "\newcommand{\MaxDelta}{" %4.2f (delta_max) "}" _n // Round the maximum absolute bid difference to two decimals for prose.
+
+. file write fh "\newcommand{\BinWidth}{" %5.3f (bin_width) "}" _n // Round the common individual bin width to three decimals for prose.
+
+. file write fh "\newcommand{\ChoiceRMSEIndividual}{" %4.1f (100*choice_rmse_i) "}" _n // Write individual choice RMSE in percentage points with one decimal.
+
+. file write fh "\newcommand{\ChoiceRMSEPooled}{" %4.1f (100*choice_rmse_c) "}" _n // Write class choice RMSE in percentage points with one decimal.
+
+. file write fh "\newcommand{\RTRMSEIndividual}{" %4.0f (rmse_i) "}" _n // Round individual time RMSE to whole milliseconds for prose.
+
+. file write fh "\newcommand{\RTRMSEPooled}{" %4.0f (rmse_c) "}" _n // Round class time RMSE to whole milliseconds for prose.
+
+. file write fh "\newcommand{\CurveGapIndividual}{" %4.1f (max_curve_gap_i) "}" _n // Write the largest individual dot-to-curve time gap with one decimal.
+
+. file write fh "\newcommand{\AltAIndividual}{" %5.0f (A_all_i) "}" _n // Write the alternative individual time-scale estimate for the appendix.
+
+. file write fh "\newcommand{\AltOffsetIndividual}{" %4.0f (t0_all_i) "}" _n // Write the alternative nondecision-time estimate for the appendix.
+
+. file write fh "\newcommand{\AltRSquaredIndividual}{" %5.3f (r2_all_i) "}" _n // Write the alternative regression's R-squared to three decimals.
+
+. file close fh // Close the numeric-macro file after writing all 26 values.
+
+. 
+end of do-file
+
+. display as result "PROJECT 1 PIPELINE COMPLETED SUCCESSFULLY" // The shell script checks for this exact completion line.
+PROJECT 1 PIPELINE COMPLETED SUCCESSFULLY
+
+. log close // Flush and close the results log before Stata exits.
+      name:  <unnamed>
+       log:  /private/tmp/project-1 replication check.CRK8XG/project-1-replication/logs/stata-master.log
+  log type:  text
+ closed on:   5 Oct 2026, 15:55:44
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

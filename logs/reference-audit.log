@@ -1,0 +1,46 @@
+========================================
+  LaTeX label / reference audit
+========================================
+
+Labels defined:       18
+References to labels: 12
+
+--- Broken references (\ref to a non-existent \label) ---
+  (none)
+
+--- Orphan labels (\label never referenced) ---
+  app:bin-results
+  sec:conclusion
+  sec:individual-choices
+  sec:individual-times
+  sec:introduction
+  sec:pooled
+
+--- Naming-convention violations (prefix not sec:/app:/fig:/tab:/eq:/prop:/par:) ---
+  (none)
+
+--- Labels by file ---
+  ./sections/appendix_empirical.tex  (3 labels)
+      app:bin-results
+      tab:individual-bins
+      tab:pooled-bins
+  ./sections/conclusion.tex  (1 label)
+      sec:conclusion
+  ./sections/individual_choices.tex  (5 labels)
+      sec:individual-choices
+      eq:choice-probability
+      eq:individual-likelihood
+      eq:inverse-probability
+      fig:individual-choice
+  ./sections/individual_response_times.tex  (3 labels)
+      sec:individual-times
+      eq:mean-time
+      fig:individual-time
+  ./sections/introduction.tex  (1 label)
+      sec:introduction
+  ./sections/pooled_results.tex  (5 labels)
+      sec:pooled
+      eq:pooled-likelihood
+      fig:pooled-choice
+      fig:pooled-time
+      tab:estimates

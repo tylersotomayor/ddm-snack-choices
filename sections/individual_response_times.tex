@@ -1,0 +1,74 @@
+\section{Individual Response Times}
+\label{sec:individual-times}
+
+\subsection{Outlier Removal and Bin Means (2)}
+Across all 435 trials, my mean response time is \RTMean\ milliseconds and
+the sample standard deviation is \RTSD\ milliseconds. Using these
+values, I exclude responses at least two standard deviations from the mean
+and retain those satisfying
+\[
+  |RT_i-\overline{RT}|<2s_{RT},
+  \qquad
+  \RTLower<RT_i<\RTUpper.
+\]
+All \RTRemoved\ excluded responses exceed the upper cutoff. The remaining
+\RTKept\ trials occupy the same 15 bins used for choices, with the original
+$d_j$ coordinates and choice estimate of $\alpha$.
+
+The response-time formula in \textcite[slide 10]{woodford2026ddm}, also
+developed in \textcite[pp.\ 3--4]{souther2026ddm}, is
+\begin{equation}\label{eq:mean-time}
+  \mathbb{E}[RT\mid\Delta]=A G_\alpha(\Delta)+t_0,
+  \qquad
+  G_\alpha(\Delta)=
+  \begin{cases}
+    \dfrac{\tanh(\alpha\Delta)}{\Delta}, & \Delta\ne0,\\[6pt]
+    \alpha, & \Delta=0.
+  \end{cases}
+\end{equation}
+Here $A$ sets the time scale and $t_0$ is time spent outside evidence
+accumulation. The value at zero follows from $\tanh(x)/x\to1$ as $x\to0$.
+This limit matters because one trial has an exactly zero bid difference.
+The function is even and decreases with $|\Delta|$. For $A>0$, the model
+predicts the longest response times when the two values are equal.
+
+Let $S_j$ contain the retained trials in bin $j$. I average response time
+and the model's time function over this same set:
+\[
+  T_j=\frac{1}{|S_j|}\sum_{i\in S_j}RT_i,
+  \qquad
+  g_j=\frac{1}{|S_j|}\sum_{i\in S_j}G_{\widehat\alpha}(\Delta_i).
+\]
+I then estimate $T_j=t_0+A g_j+u_j$ by ordinary least squares, giving each
+of the 15 bins equal weight. The estimates are
+\[
+  \widehat A=\TimeScaleIndividual,
+  \qquad \widehat t_0=\OffsetIndividual\ \text{ms},
+  \qquad R^2=\RSquaredIndividual.
+\]
+Both $A$ and $t_0$ come out positive, as the model requires.
+
+\begin{figure}[!ht]
+  \centering
+  \caption{\capttitle{Individual Mean Response Times}}
+  \label{fig:individual-time}
+  \includegraphics[width=0.94\textwidth]{fig-individual-response-time.pdf}
+  \floatnotes{Source: \texttt{indv-Data.csv}, UNI \texttt{ts3686};
+  \RTKept\ trials within two standard deviations of the full-sample mean.
+  Open circles show $T_j$; black dots show $\widehat A g_j+\widehat t_0$.
+  The curve is equation~\eqref{eq:mean-time} evaluated at $d$.
+  The bin boundaries, $d_j$, and $\widehat\alpha$ are held fixed from
+  the choice analysis; both $T_j$ and $g_j$ average over retained trials.}
+\end{figure}
+
+\subsection{Assessment}
+At large bid differences, I usually choose quickly (Figure~\ref{fig:individual-time}).
+Near equal bids, the pattern is less regular. The slowest bin, near $d_j=-0.68$,
+averages 2,070 milliseconds; the next, with nearly equal bids, averages 1,639.
+I may have found similarly valued snacks easy to choose between, but the pairs
+near $d_j=-0.68$ harder despite their larger bid gaps.
+
+The bin near $d_j=2.45$ also stands out. Its mean of 1,849 milliseconds
+exceeds the fitted value by about 301 milliseconds.
+Across the 15 means, the model explains 55.4 percent of the variation, with
+a root mean squared error (RMSE) of \RTRMSEIndividual\ milliseconds.

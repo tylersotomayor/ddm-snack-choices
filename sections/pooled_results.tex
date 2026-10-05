@@ -1,0 +1,102 @@
+\section{Pooled Class Results}
+\label{sec:pooled}
+
+\subsection{Choice Probabilities (3a)}
+The pooled data contain 30,450 choices, with $n_j$ right choices and $m_j$
+left choices in bin $j$. Treating the supplied mean $d_j$ as each trial's
+value difference gives the approximate log likelihood
+\begin{equation}\label{eq:pooled-likelihood}
+  LL_c(\alpha)
+  \;=\;\sum_{j=1}^{15}
+  \left[n_j\log P_\alpha(d_j)+m_j\log P_\alpha(-d_j)\right].
+\end{equation}
+Binomial coefficients can be omitted because they do not depend on $\alpha$.
+The subscript $c$ denotes the class data. Maximizing
+equation~\eqref{eq:pooled-likelihood} gives $\widehat\alpha_c=\AlphaPooled$, with
+$LL_c(\widehat\alpha_c)=\LLPooled$.
+
+The plotted frequencies are $p_j=n_j/(n_j+m_j)$ and
+$e_j=P_{\widehat\alpha_c}(d_j)$. Under the bin-mean assumption,
+$P_{\widehat\alpha_c}^{-1}(e_j)=d_j$ exactly, so the supplied means are also
+the inverse-probability coordinates used in Question 1(d).
+
+\begin{figure}[!ht]
+  \centering
+  \caption{\capttitle{Pooled Choice Frequencies}}
+  \label{fig:pooled-choice}
+  \includegraphics[width=0.94\textwidth]{fig-pooled-choice.pdf}
+  \floatnotes{Source: \texttt{popData.csv}; 30,450 choices in 15 supplied bins.
+  Open circles show $n_j/(n_j+m_j)$; black dots and the curve show
+  predictions using the class estimate of alpha.
+  Estimation treats each bin's supplied mean value difference as the value
+  difference on every trial in that bin.}
+\end{figure}
+
+\begingroup
+\clubpenalty=10000
+The class choice fit has a count-weighted RMSE of \ChoiceRMSEPooled\ percentage
+points (Figure~\ref{fig:pooled-choice}). The errors are systematic.
+Near $d_j=-1.35$ and $d_j=1.29$, observed right-choice shares
+are 26.5 and 75.6 percent; the fitted shares, 30.4 and 69.0 percent, lie
+closer to one-half. This pattern reverses in the tails. Even with a value
+advantage of \$7.81, the right snack was passed over in 5.3 percent of choices,
+against just 0.8 percent predicted. A single $\alpha$ cannot match both the
+steep change around equal bids and the less extreme choices in the tails.
+\par
+\endgroup
+
+\subsection{Mean Response Times (3b)}
+The pooled file contains only bin means, so individual outliers cannot be trimmed.
+With $\widehat\alpha_c$ fixed, I regress $T_j$ on
+$g_j=G_{\widehat\alpha_c}(d_j)$, giving each of the 15 bins equal weight.
+The estimates are
+\[
+  \widehat A_c=\TimeScalePooled,
+  \qquad \widehat t_{0,c}=\OffsetPooled\ \text{ms},
+  \qquad R^2=\RSquaredPooled.
+\]
+
+\begin{figure}[!ht]
+  \centering
+  \caption{\capttitle{Pooled Mean Response Times}}
+  \label{fig:pooled-time}
+  \includegraphics[width=0.94\textwidth]{fig-pooled-response-time.pdf}
+  \floatnotes{Source: \texttt{popData.csv}; 15 supplied response-time means,
+  in milliseconds. Open circles show $T_j$; black dots show
+  $\widehat A_c g_j+\widehat t_{0,c}$.
+  The time function uses the class estimate of alpha, and all bins receive
+  equal OLS weight. Under the imposed bin-mean
+  approximation, the black dots lie exactly on the theoretical curve.}
+\end{figure}
+
+The class means closely follow the predicted inverted-U
+(Figure~\ref{fig:pooled-time}). Their RMSE is
+\RTRMSEPooled\ milliseconds, compared with \RTRMSEIndividual\ milliseconds
+for my data; $R^2$ is 0.961 (Table~\ref{tab:estimates}).
+
+The largest residual is in the bin near $d_j=-0.03$, whose mean of
+1,438 milliseconds exceeds the fitted value by about 80 milliseconds.
+At the far right, the class also takes about 74 milliseconds longer
+than predicted.
+
+\begin{table}[!ht]
+  \centering
+  \caption{\capttitle{Estimated Parameters and Descriptive Fit}}
+  \label{tab:estimates}
+  \small
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    & Individual & Pooled class \\
+    \midrule
+    \input{output/tables/tab-estimates.tex}
+  \end{tabular}
+  \floatnotes{Choice estimates $\widehat\alpha$ (individual) and
+  $\widehat\alpha_c$ (class) use maximum likelihood with no intercept.
+  Response-time estimates use unweighted OLS on 15 means, holding the
+  relevant choice estimate fixed. Individual response-time means use
+  \RTKept\ retained trials; pooled means are used as supplied.
+  Choice RMSE is $[\sum_j N_j(p_j-e_j)^2/\sum_jN_j]^{1/2}$,
+  with $N_j$ the total choice count in a bin. Time RMSE divides the
+  residual sum of squares by 15. $\alpha$ is in inverse dollars and
+  $A$ is in milliseconds times dollars.}
+\end{table}

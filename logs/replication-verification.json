@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-05",
+  "clean_test_folder": "/tmp/project-1 replication check.CRK8XG/project-1-replication",
+  "removed_bundled_outputs_before_run": true,
+  "runner": "./run_stata.sh",
+  "figure_font": "Latin Modern Roman (embedded as LMRoman10-Regular)",
+  "figures": [
+    {
+      "figure": "fig-individual-choice.pdf",
+      "raster_sha256": "a70196f55b7b61b2ca0a73899b11f0667283315c70af2f78aa60fc782ddab5be",
+      "identical_at_dpi": 150
+    },
+    {
+      "figure": "fig-individual-response-time.pdf",
+      "raster_sha256": "1adc174b4d501db808cd71ff9ce51c141892b99622d45b024b7fe4fd545c65c4",
+      "identical_at_dpi": 150
+    },
+    {
+      "figure": "fig-pooled-choice.pdf",
+      "raster_sha256": "636b991f734a5af7cde77d996c01cecd546486a5fc66d9d536577154a24f61e1",
+      "identical_at_dpi": 150
+    },
+    {
+      "figure": "fig-pooled-response-time.pdf",
+      "raster_sha256": "43c8132741cc1d7b761d00e1bb6340b54b4818fae33891f424386635d1a3d523",
+      "identical_at_dpi": 150
+    }
+  ],
+  "csv_bytes_identical": true,
+  "table_bytes_identical": true,
+  "manifest_check": "shasum -a 256 -c checksums.sha256: 14 of 14 OK; figure PDFs are excluded because Stata PDF export is not byte-stable",
+  "code_copies_identical": true,
+  "independent_audit": "Individual audit passed: alpha=0.408351361, A=2913.033209, t0=644.122740, R2=0.554163466, RMSE=172.209030\nPooled audit passed: alpha=0.308202236, A=2656.594030, t0=539.137219, R2=0.960734136, RMSE=36.708551\nAll trial counts, bin means, inverse coordinates, likelihood fits, and response-time predictions agree with Stata.\n",
+  "archive_sha256": "a7eacb388632066d69b72dfc1b7938f42e60dc44b08f4b49c122b39e43fc98d5",
+  "final_archive_checked": true,
+  "python_replication": {
+    "script": "code/replicate.py",
+    "dependencies": "Python standard library for all numbers; matplotlib for figures only",
+    "python_only_fresh_copy": "4 table fragments byte-identical to the shipped Stata copies",
+    "after_stata_fresh_copy": "4 table fragments byte-identical; 3 processed datasets agree to 1e-9 relative (largest 2.1e-10)",
+    "figure_pdfs_byte_stable_across_runs": true,
+    "figure_font_embedding": "Type 3, no poppler warnings"
+  }
+}
