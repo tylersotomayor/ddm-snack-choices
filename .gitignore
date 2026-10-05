@@ -18,3 +18,6 @@ data/intermediate/
 /AGENTS.md
 /PAPER_FORMATTING_DIRECTIVE.md
 /RESEARCH_WORKFLOW_DIRECTIVE.md
+
+# Submission bundle built from the report and the replication package
+/output/submission/
