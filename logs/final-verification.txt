@@ -24,7 +24,7 @@ Page 1 and pages 5, 7, 8, and 9 were rasterized and inspected: every figure
 embeds LMRoman10-Regular, the axis-title text extracts with the ligature on all
 four pages, and the titles sit clear of the tick labels.
 The report has 13 pages. The root main.pdf is identical to the final report PDF.
-Report SHA-256: d72eeef205b603a912ced6492c5d8bf1a3258a5a05a6110a8f5dc77b8444743f
+Report SHA-256: ce94b6640091127e0e808da012588f3c056b9db53c942938296baab9fe8091ee
 
 PYTHON REPLICATION
 code/replicate.py reproduces the whole analysis without Stata, using only the
